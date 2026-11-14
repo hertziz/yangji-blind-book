@@ -1,5 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
-
 const COACH_SYSTEM_INSTRUCTION = `당신은 대한민국 초등학교 5학년 영어 수업을 돕는 다정한 '영어 문장 코치'입니다.
 다음 5가지 규칙을 엄격히 지키세요.
 
@@ -37,34 +35,70 @@ function getGeminiApiKey(): string {
   ).trim();
 }
 
-const CANDIDATE_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-2.5-flash-preview-05-20',
-];
+// 현재 API 키로 사용 가능한 최적의 Gemini 모델을 동적으로 찾습니다.
+async function resolveAvailableModel(apiKey: string): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const models: Array<{ name: string; supportedGenerationMethods?: string[] }> =
+        data.models || [];
+      const generateModels = models
+        .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+        .map((m) => m.name.replace(/^models\//, ''));
 
-async function generateWithFallback(apiKey: string, userPrompt: string): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey });
-  let lastError: unknown = null;
+      // 우선순위: flash 계열 최신 모델 -> pro 계열 -> 첫 번째 지원 모델
+      const preferred =
+        generateModels.find((n) => n.includes('flash') && !n.includes('8b') && !n.includes('tts') && !n.includes('image')) ||
+        generateModels.find((n) => n.includes('flash')) ||
+        generateModels.find((n) => n.includes('gemini')) ||
+        generateModels[0];
 
-  for (const modelName of CANDIDATE_MODELS) {
-    try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: userPrompt,
-        config: {
-          systemInstruction: COACH_SYSTEM_INSTRUCTION,
-        },
-      });
-      const text = (response.text ?? '').trim();
-      if (text) return text;
-    } catch (err) {
-      console.warn(`[AI Coach] ${modelName} 호출 실패:`, err);
-      lastError = err;
+      if (preferred) return preferred;
     }
+  } catch (e) {
+    console.warn('[AI Coach] 모델 목록 조회 실패, 기본 모델 시도:', e);
+  }
+  return 'gemini-2.5-flash';
+}
+
+async function callGeminiDirect(apiKey: string, userPrompt: string): Promise<string> {
+  if (!apiKey) {
+    throw new Error('API 키가 비어 있습니다. Netlify 환경변수 설정을 확인해 주세요.');
   }
 
-  throw lastError || new Error('AI 응답을 가져오지 못했습니다.');
+  const modelName = await resolveAvailableModel(apiKey);
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: COACH_SYSTEM_INSTRUCTION }],
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: userPrompt }],
+        },
+      ],
+    }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const errMsg = data?.error?.message || `HTTP ${res.status}`;
+    throw new Error(`AI 호출 오류 (${modelName}): ${errMsg}`);
+  }
+
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  if (!text) {
+    throw new Error('AI 응답 내용이 비어 있습니다.');
+  }
+  return text;
 }
 
 export async function requestCoachReview(params: {
@@ -74,33 +108,15 @@ export async function requestCoachReview(params: {
 }): Promise<string> {
   const apiKey = getGeminiApiKey();
 
-  if (apiKey) {
-    try {
-      const userPrompt = [
-        '다음은 초등학교 5학년 학생이 작성한 등장인물 영어 소개글입니다. 시스템 지침의 5가지 규칙(특히 정답 직접 제시 금지, 문법 용어 금지, 반드시 🟢/🟡/🔍 3줄 형식)을 엄격히 지켜 피드백해 주세요.',
-        '',
-        `[Step 1. 생김새 묘사(필수)]: ${params.step1Looks.trim()}`,
-        `[Step 2. 옷차림 묘사(필수)]: ${params.step2Clothes.trim()}`,
-        `[Step 3. 특징·취미·능력(심화 선택)]: ${params.step3Traits.trim() || '(작성하지 않음)'}`,
-      ].join('\n');
+  const userPrompt = [
+    '다음은 초등학교 5학년 학생이 작성한 등장인물 영어 소개글입니다. 시스템 지침의 5가지 규칙(특히 정답 직접 제시 금지, 문법 용어 금지, 반드시 🟢/🟡/🔍 3줄 형식)을 엄격히 지켜 피드백해 주세요.',
+    '',
+    `[Step 1. 생김새 묘사(필수)]: ${params.step1Looks.trim()}`,
+    `[Step 2. 옷차림 묘사(필수)]: ${params.step2Clothes.trim()}`,
+    `[Step 3. 특징·취미·능력(심화 선택)]: ${params.step3Traits.trim() || '(작성하지 않음)'}`,
+  ].join('\n');
 
-      return await generateWithFallback(apiKey, userPrompt);
-    } catch (err) {
-      console.error('[AI Coach Error]', err);
-      throw new Error('잠시 인터넷 연결을 확인하고 다시 눌러주세요.');
-    }
-  }
-
-  const res = await fetch('/api/coach/review', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || '잠시 인터넷 연결을 확인하고 다시 눌러주세요.');
-  }
-  return data.feedback;
+  return await callGeminiDirect(apiKey, userPrompt);
 }
 
 export async function requestCoachQuestion(params: {
@@ -109,31 +125,13 @@ export async function requestCoachQuestion(params: {
 }): Promise<string> {
   const apiKey = getGeminiApiKey();
 
-  if (apiKey) {
-    try {
-      const userPrompt = [
-        '학생이 [표현·단어 질문하기]에 질문했습니다. 시스템 지침 4번(문장 전체를 대신 만들어 주지 말고, 초등 3~5학년 수준 핵심 영단어 1~2개와 활용 힌트만 2문장 이내로 짧게 안내, 문법 용어 금지, 💡 기호 활용 가능)을 꼭 지켜 답변해 주세요.',
-        params.currentDraft ? `학생이 현재 쓰고 있는 글 참고: ${params.currentDraft.trim()}` : '',
-        `학생 질문: ${params.question.trim()}`,
-      ]
-        .filter(Boolean)
-        .join('\n');
+  const userPrompt = [
+    '학생이 [표현·단어 질문하기]에 질문했습니다. 시스템 지침 4번(문장 전체를 대신 만들어 주지 말고, 초등 3~5학년 수준 핵심 영단어 1~2개와 활용 힌트만 2문장 이내로 짧게 안내, 문법 용어 금지, 💡 기호 활용 가능)을 꼭 지켜 답변해 주세요.',
+    params.currentDraft ? `학생이 현재 쓰고 있는 글 참고: ${params.currentDraft.trim()}` : '',
+    `학생 질문: ${params.question.trim()}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
 
-      return await generateWithFallback(apiKey, userPrompt);
-    } catch (err) {
-      console.error('[AI Coach Question Error]', err);
-      throw new Error('잠시 인터넷 연결을 확인하고 다시 눌러주세요.');
-    }
-  }
-
-  const res = await fetch('/api/coach/ask', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || '잠시 인터넷 연결을 확인하고 다시 눌러주세요.');
-  }
-  return data.answer;
+  return await callGeminiDirect(apiKey, userPrompt);
 }
