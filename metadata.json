@@ -1,0 +1,6 @@
+{
+  "name": "Who is your favorite character?",
+  "description": "초등학교 5학년 영어 인물 묘사를 읽고 숨겨진 책과 등장인물을 만나보는 블라인드 캐릭터 도서 추천 웹앱",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
