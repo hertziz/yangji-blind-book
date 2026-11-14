@@ -35,70 +35,48 @@ function getGeminiApiKey(): string {
   ).trim();
 }
 
-// 현재 API 키로 사용 가능한 최적의 Gemini 모델을 동적으로 찾습니다.
-async function resolveAvailableModel(apiKey: string): Promise<string> {
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
-    );
-    if (res.ok) {
-      const data = await res.json();
-      const models: Array<{ name: string; supportedGenerationMethods?: string[] }> =
-        data.models || [];
-      const generateModels = models
-        .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
-        .map((m) => m.name.replace(/^models\//, ''));
-
-      // 우선순위: flash 계열 최신 모델 -> pro 계열 -> 첫 번째 지원 모델
-      const preferred =
-        generateModels.find((n) => n.includes('flash') && !n.includes('8b') && !n.includes('tts') && !n.includes('image')) ||
-        generateModels.find((n) => n.includes('flash')) ||
-        generateModels.find((n) => n.includes('gemini')) ||
-        generateModels[0];
-
-      if (preferred) return preferred;
-    }
-  } catch (e) {
-    console.warn('[AI Coach] 모델 목록 조회 실패, 기본 모델 시도:', e);
-  }
-  return 'gemini-2.5-flash';
-}
+const TARGET_MODELS = [
+  'gemini-3.8-flash',
+  'gemini-3.0-flash',
+  'gemini-flash-latest',
+];
 
 async function callGeminiDirect(apiKey: string, userPrompt: string): Promise<string> {
   if (!apiKey) {
     throw new Error('API 키가 비어 있습니다. Netlify 환경변수 설정을 확인해 주세요.');
   }
 
-  const modelName = await resolveAvailableModel(apiKey);
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  let lastErrorMsg = '';
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: {
-        parts: [{ text: COACH_SYSTEM_INSTRUCTION }],
-      },
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: userPrompt }],
+  for (const modelName of TARGET_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: COACH_SYSTEM_INSTRUCTION }],
         },
-      ],
-    }),
-  });
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: userPrompt }],
+          },
+        ],
+      }),
+    });
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const errMsg = data?.error?.message || `HTTP ${res.status}`;
-    throw new Error(`AI 호출 오류 (${modelName}): ${errMsg}`);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (text) return text;
+    } else {
+      lastErrorMsg = data?.error?.message || `HTTP ${res.status}`;
+    }
   }
 
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  if (!text) {
-    throw new Error('AI 응답 내용이 비어 있습니다.');
-  }
-  return text;
+  throw new Error(`AI 호출 오류: ${lastErrorMsg}`);
 }
 
 export async function requestCoachReview(params: {
