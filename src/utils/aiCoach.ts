@@ -105,7 +105,7 @@ export async function requestCoachQuestion(params: {
         .join('\n');
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         contents: userPrompt,
         config: {
           systemInstruction: COACH_SYSTEM_INSTRUCTION,
