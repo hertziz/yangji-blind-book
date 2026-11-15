@@ -1,21 +1,18 @@
-const COACH_SYSTEM_INSTRUCTION = `당신은 대한민국 초등학교 5학년 영어 수업을 돕는 엄격하고 다정한 '영어 문장 코치'입니다.
-학생이 쓴 등장인물 소개글(Step 1~3)을 아래 기준으로 철저히 점검하세요.
-
-[절대 엄수 규칙]
-1. 정답 직접 제시 금지: 고쳐진 정답 영어 문장이나 완성된 정답 구절을 직접 적어주지 마세요. 학생이 스스로 생각해서 고칠 수 있도록 '어느 단어/위치가 왜 어색한지' 단서(힌트)만 구체적으로 짚어주세요.
-2. 상위 문법 용어 금지: '주어, 동사, be동사, 일반동사, 형용사, 명사, 관사, 단수, 복수, 3인칭, 수일치, 시제, 현재진행형, 과거형, 문법, 어순' 같은 문법 용어는 절대 쓰지 마세요. 대신 '짝꿍 말', '단어 주머니', '움직임을 나타내는 말', '셀 수 있는 물건 하나를 뜻하는 말(a/an)' 등 초등학생 눈높이 말로 풀어서 설명하세요.
-3. 엄격한 오류 점검 체크리스트 (하나라도 틀리면 절대 통과시키지 마세요!):
-   - Step 1(생김새)과 Step 2(옷차림)가 같은 인물인데 'He'와 'She'를 섞어 썼는가?
-   - 사람의 키를 말할 때 'tall/short' 대신 'long' 같은 잘못된 단어를 썼는가? (예: "She is a long" -> 사람의 키에는 long을 쓰지 않고, 키를 나타내는 말 앞에는 a도 쓰지 않음을 지적)
-   - 키나 성격을 나타내는 말(tall, short, smart 등) 앞에 불필요한 'a/an'을 붙였는가?
-   - 옷을 입고 있다는 표현('He/She is wearing ~')에서 'is'나 'wearing'이 빠졌거나, 'were/ware/waer/wear' 같은 오타나 다른 단어를 썼는가? (예: "She were pants" -> 입고 있는 옷을 말할 때는 'were'가 아니라 짝꿍 말 'is wearing'을 써야 함을 지적)
-   - 'He/She has ~'에서 'has' 대신 'have'를 썼거나 'He is big eyes'처럼 'has' 대신 'is'를 잘못 썼는가?
-   - 모자(a hat), 드레스(a dress) 등 하나인 물건 앞에 'a/an'이 빠졌거나, 바지(pants)·신발(shoes)·안경(glasses)에 '-s/-es'가 빠졌는가?
-   - 문장 첫 글자 대문자 및 문장 끝 마침표(.)가 정확한가?
-4. 출력 형식 (항목 제목 글자는 절대 쓰지 말고, 반드시 아래 아이콘 3줄로만 각 1~2문장 존댓말로 답하세요):
-🟢 (학생이 쓴 단어 중 의미가 통하거나 노력한 부분 1문장 칭찬)
-🟡 (위 체크리스트에서 발견된 고쳐야 할 위치와 힌트 1~2문장. 단, 모든 문장에 오류가 단 하나도 없을 때만 "우리 학년 표현에 맞게 정확히 잘 썼어요! 바로 제출해도 좋아요."라고 출력)
-🔍 (친구들이 인물을 더 생생히 상상하도록 색깔, 크기, 특징 등을 한 가지 더 떠올려 보게 하는 짧은 질문 1문장)`;
+const COACH_SYSTEM_INSTRUCTION = `초등 5학년 영어 문장 코치입니다.
+[절대 규칙]
+1. 정답 문장·구절 직접 제시 금지(스스로 고칠 단서만 제시).
+2. '주어,동사,be동사,형용사,명사,관사,단수,복수,3인칭,시제,문법' 등 문법 용어 금지('짝꿍 말','단어 주머니' 등 사용).
+3. 엄격 점검(하나라도 어색하면 절대 통과 금지!):
+- Step 1~3에서 같은 인물인데 He와 She 혼용 여부
+- 키에 tall/short 대신 long 사용 또는 tall/short/smart 앞에 a 사용 여부
+- 옷차림('He/She is wearing ~')에서 is/wearing 누락, wear/were/ware/waer 오타 여부
+- 'He/She has ~'에서 have나 is 오용 여부
+- 단수 옷(hat,dress,jacket,cap,coat,shirt,skirt) 앞 a 누락, 복수 옷(pants,shoes,glasses,boots,shorts) -s 누락 여부
+- 첫 글자 대문자 및 끝 마침표(.) 여부
+4. 항목 제목 없이 아래 아이콘 3줄(각 1문장, 존댓말)로만 출력:
+🟢 (잘 쓴 단어·노력 칭찬 1문장)
+🟡 (고칠 위치와 힌트 1~2가지. 오류가 전혀 없을 때만 "우리 학년 표현에 맞게 정확히 잘 썼어요! 바로 제출해도 좋아요.")
+🔍 (색깔·크기·특징을 더 떠올려 보게 하는 짧은 질문 1문장)`;
 
 function getGeminiApiKey(): string {
   return (
@@ -34,61 +31,145 @@ function stripFeedbackLabels(raw: string): string {
     .trim();
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+/**
+ * [1단계: 0.05초 초고속 엄격 오류 감지]
+ * 명백한 오류만 0.05초 만에 즉시 잡아냅니다.
+ * 주의: 여기서 오류가 안 발견되었다고 통과시키지 않고(null 반환), 반드시 Gemini AI 정밀 검사로 넘깁니다!
+ */
+function detectDefiniteErrorsInstantly(params: {
+  step1Looks: string;
+  step2Clothes: string;
+  step3Traits: string;
+}): string | null {
+  const s1 = params.step1Looks.trim();
+  const s2 = params.step2Clothes.trim();
+  const s3 = params.step3Traits.trim();
+  const combined = `${s1} ${s2} ${s3}`.trim();
 
-async function callGeminiStrict(apiKey: string, userPrompt: string): Promise<string> {
-  if (!apiKey) {
-    throw new Error('API 키가 설정되지 않았습니다. Netlify 환경변수를 확인해 주세요.');
-  }
+  const errors: string[] = [];
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-  let lastErrorMsg = '';
-
-  // 구글 서버 일시 혼잡(503/429) 시 1.2초 간격으로 최대 3회 자동 재시도
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: COACH_SYSTEM_INSTRUCTION }],
-          },
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: userPrompt }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.2,
-          },
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-        if (text) return stripFeedbackLabels(text);
-      } else {
-        lastErrorMsg = data?.error?.message || `HTTP ${res.status}`;
-        if (res.status === 503 || res.status === 429) {
-          await sleep(1200 * (attempt + 1));
-          continue;
-        }
-        break;
-      }
-    } catch (err: any) {
-      lastErrorMsg = err?.message || '네트워크 연결 오류';
-      await sleep(1000);
+  if (/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(combined) || !/[a-zA-Z]/.test(combined)) {
+    errors.push("위쪽 '단어 주머니'를 펼쳐 한글 대신 영어 단어로 문장을 써 볼까요?");
+  } else {
+    // 1. 동일 인물 He / She 혼용
+    if (/\b(he|his|him)\b/i.test(combined) && /\b(she|her)\b/i.test(combined)) {
+      errors.push("한 인물을 소개하는 글인데 'He(남자)'와 'She(여자)'가 섞여 있어요! 인물에 맞게 하나로 통일해 보세요.");
+    }
+    // 2. 키 묘사에 long 오용 (예: she is a long / he is long)
+    if (/\b(is|am|are)\s+(a\s+)?long\b/i.test(combined)) {
+      errors.push("사람의 키가 크다고 할 때는 'long' 대신 'tall'을 쓰고, 앞의 'a'도 빼야 해요.");
+    }
+    // 3. 형용사 앞 불필요한 a/an (예: is a tall, is a short, is a smart)
+    if (/\b(is|am|are)\s+a(n)?\s+(tall|short|smart|brave|kind|funny|curious|cute|pretty|big|small)\b/i.test(combined)) {
+      errors.push("키나 성격을 나타내는 말('tall', 'short' 등) 앞에는 'a'를 쓰지 않아요.");
+    }
+    // 4. 옷차림 동사 오타 및 누락 (waer, ware, were, wear)
+    if (/\b(waer|ware|wera)\b/i.test(combined)) {
+      errors.push("옷을 입는다는 말은 'is wearing'이에요. 철자('w-e-a-r-i-n-g')를 단어 주머니에서 확인해 보세요.");
+    } else if (s2 && /\b(he|she)\s+were\b/i.test(s2)) {
+      errors.push("입고 있는 옷을 소개할 때는 'were'가 아니라 짝꿍 말 'is wearing'을 써야 해요.");
+    } else if (s2 && /\b(he|she)\s+wear(s)?\b/i.test(s2)) {
+      errors.push("입고 있는 옷차림을 말할 때는 'wear' 대신 'is wearing' 형태로 써 보세요.");
+    } else if (s2 && /\b(he|she)\s+wearing\b/i.test(s2)) {
+      errors.push("옷차림 문장에서 'He/She'와 'wearing' 사이에 짝꿍 말 'is'를 꼭 넣어 주세요.");
+    }
+    // 5. He/She have 오류 또는 He/She is big eyes 오류
+    if (/\b(he|she)\s+have\b/i.test(combined)) {
+      errors.push("'He'나 'She' 뒤에는 'have' 대신 짝꿍 말 'has'를 써 보세요.");
+    }
+    if (/\b(he|she)\s+is\s+(a\s+)?(big|small|long|short|curly|straight)\s+(eyes|eye|nose|hair|ears)\b/i.test(combined)) {
+      errors.push("눈, 코, 머리카락 같은 신체 모습을 가지고 있다고 할 때는 'is' 대신 'has'를 써 보세요.");
+    }
+    // 6. 같은 글자 3연속 오타 (예: dresss, talll)
+    const triple = combined.match(/\b[a-zA-Z]*([a-zA-Z])\1\1[a-zA-Z]*\b/);
+    if (triple) {
+      errors.push(`'${triple[0]}' 단어에 같은 알파벳이 세 번 연속 들어갔어요. 철자를 다시 확인해 보세요.`);
+    }
+    // 7. 복수형 의류(-s/-es) 누락 (pant, shoe, glass, boot)
+    if (/\b(pant|shoe|glass|boot)\b/i.test(combined)) {
+      errors.push('바지(pants), 신발(shoes), 안경(glasses), 부츠(boots)처럼 두 짝인 물건은 단어 끝에 -s나 -es를 붙여요.');
+    }
+    // 8. 단수 의류 앞 a 누락
+    if (/\bwearing\s+(?:blue|red|yellow|white|black|green|pink|brown\s+)?(dress|hat|cap|jacket|raincoat|coat|shirt|t-shirt|skirt)\b/i.test(combined)) {
+      errors.push("드레스, 모자, 재킷처럼 하나인 옷 앞에는 'a'를 붙여 보세요.");
+    }
+    // 9. 첫 글자 대문자 및 마침표 점검
+    if ((s1 && !/^[A-Z]/.test(s1)) || (s2 && !/^[A-Z]/.test(s2)) || (s3 && !/^[A-Z]/.test(s3))) {
+      errors.push('각 문장의 맨 첫 글자는 항상 큰 글자(대문자)로 시작해 주세요.');
+    }
+    if ((s1 && !/[.!]$/.test(s1)) || (s2 && !/[.!]$/.test(s2)) \vert{}\vert{} (s3 && !/[.!]$/.test(s3))) {
+      errors.push('문장 끝에는 마침표(.)를 꼭 찍어 마무리해 주세요.');
     }
   }
 
-  throw new Error(
-    `지금 AI 코치 서버에 접속자가 많아 응답이 지연되고 있어요. 2~3초 뒤에 [🔍 내 영어 문장 점검받기] 버튼을 한 번 더 눌러주세요! (${lastErrorMsg})`
-  );
+  // 명백한 오류가 1개 이상 발견된 경우에만 0.05초 만에 즉시 피드백 반환!
+  if (errors.length > 0) {
+    const goodPoint = '인물의 생김새와 옷차림을 영어로 표현하려고 시도한 점이 멋져요!';
+    const fixPoint = errors.slice(0, 2).join(' ');
+    const moreQuestion = s3
+      ? '오류를 고친 뒤 옷이나 머리 모양에 색깔 단어를 하나 더 넣어 볼까요?'
+      : '위 힌트를 보고 문장을 고친 뒤, 옷의 색깔이나 Step 3(특징·취미)도 더해 볼까요?';
+
+    return [`🟢 ${goodPoint}`, `🟡 ${fixPoint}`, `🔍 ${moreQuestion}`].join('\n');
+  }
+
+  // 명백한 정규식 오류가 없으면 절대 혼자 통과시키지 않고 null을 반환하여 Gemini AI가 정밀 심사하게 함!
+  return null;
+}
+
+async function fetchGeminiOnce(apiKey: string, userPrompt: string, useMinimalThinking: boolean): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const generationConfig: Record<string, any> = {
+    temperature: 0.1,
+    maxOutputTokens: 170,
+  };
+  if (useMinimalThinking) {
+    generationConfig.thinkingConfig = { thinkingLevel: 'MINIMAL' };
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: COACH_SYSTEM_INSTRUCTION }],
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: userPrompt }],
+        },
+      ],
+      generationConfig,
+    }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error?.message || `HTTP ${res.status}`);
+  }
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  if (!text) throw new Error('빈 응답');
+  return stripFeedbackLabels(text);
+}
+
+async function callGeminiFastAndStrict(apiKey: string, userPrompt: string): Promise<string> {
+  if (!apiKey) {
+    throw new Error('API 키가 설정되지 않았습니다.');
+  }
+
+  try {
+    // 최소 추론(초고속) 호출과 일반 호출을 동시에 경쟁시켜 먼저 오는 응답을 즉시 채택
+    return await Promise.any([
+      fetchGeminiOnce(apiKey, userPrompt, true),
+      fetchGeminiOnce(apiKey, userPrompt, false),
+    ]);
+  } catch {
+    // 일시 과부하 시 1초 후 1회 최종 재시도
+    await new Promise((r) => setTimeout(r, 1000));
+    return await fetchGeminiOnce(apiKey, userPrompt, false);
+  }
 }
 
 export async function requestCoachReview(params: {
@@ -96,31 +177,11 @@ export async function requestCoachReview(params: {
   step2Clothes: string;
   step3Traits: string;
 }): Promise<string> {
-  const apiKey = getGeminiApiKey();
+  // 1단계: 명백한 오류(He/She 혼용, a long, waer, pant, 대문자/마침표 누락 등)는 0.05초 만에 즉시 엄격 피드백!
+  const instantErrorFeedback = detectDefiniteErrorsInstantly(params);
+  if (instantErrorFeedback) {
+    return instantErrorFeedback;
+  }
 
-  const userPrompt = [
-    '아래 초등학교 5학년 학생이 쓴 문장을 [절대 엄수 규칙]의 체크리스트에 따라 엄격하게 점검해 주세요. 틀린 표현이나 오타가 하나라도 있으면 절대 바로 제출하라고 하지 말고 🟡에 힌트를 주세요.',
-    `Step 1(생김새 묘사 - 필수): ${params.step1Looks.trim()}`,
-    `Step 2(옷차림 묘사 - 필수): ${params.step2Clothes.trim()}`,
-    `Step 3(특징·취미·능력 - 선택): ${params.step3Traits.trim() || '(작성하지 않음)'}`,
-  ].join('\n');
-
-  return await callGeminiStrict(apiKey, userPrompt);
-}
-
-export async function requestCoachQuestion(params: {
-  question: string;
-  currentDraft: string;
-}): Promise<string> {
-  const apiKey = getGeminiApiKey();
-
-  const userPrompt = [
-    '초등 3~5학년 수준 영단어 1~2개와 활용 힌트만 2문장 이내로 짧게 답하세요(문장 전체 대신 작성 금지, 문법 용어 금지, 💡 기호로 시작).',
-    params.currentDraft ? `현재 학생이 쓴 글: ${params.currentDraft.trim()}` : '',
-    `학생 질문: ${params.question.trim()}`,
-  ]
-    .filter(Boolean)
-    .join('\n');
-
-  return await callGeminiStrict(apiKey, userPrompt);
-}
+  // 2단계: 1단계를 통과한 문장은 Gemini AI가 문맥과 세부 어법을 정밀 점검 (거짓 통과 원천 차단)
+  const apiKey
