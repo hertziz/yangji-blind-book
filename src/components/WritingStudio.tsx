@@ -740,14 +740,24 @@ export function WritingStudio({
           {/* 1. AI Coaching & Student Question Box */}
           <section className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">
-                  AI 스스로 점검 코치
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  정답을 대신 써주지 않고, 스스로 고칠 수 있는 힌트만 알려드려요.
-                </p>
-              </div>
+            <div>
+  <h2 className="text-lg font-bold text-slate-900">AI 스스로 점검 코치</h2>
+  <p className="text-xs text-slate-500 mt-0.5">
+    정답을 대신 써주지 않고, 스스로 고칠 수 있는 힌트만 알려드려요.
+  </p>
+  {/* 👇 새로 추가하는 상단 범례 배지 */}
+  <div className="flex flex-wrap items-center gap-2 mt-2.5 text-xs font-medium text-slate-600">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+      🟢 잘한 점
+    </span>
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/60">
+      🟡 스스로 고쳐볼 점
+    </span>
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/60">
+      🔍 생각 더하기
+    </span>
+  </div>
+</div>
               <button
                 type="button"
                 onClick={handleAiReview}
