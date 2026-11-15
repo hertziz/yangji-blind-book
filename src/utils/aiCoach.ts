@@ -16,13 +16,7 @@ function getGeminiApiKey(): string {
   ).trim();
 }
 
-const CANDIDATE_MODELS = [
-  'gemini-3.8-flash',
-  'gemini-3.8-pro',
-  'gemini-2.5-pro',
-];
-
-// 구글 서버가 일시 과부하(High demand)일 때 수업을 멈추지 않게 작동하는 내장 규칙 코치
+// 내장 스마트 규칙 코치 (0.1초 즉시 응답)
 function buildLocalSmartFeedback(params: {
   step1Looks: string;
   step2Clothes: string;
@@ -35,33 +29,28 @@ function buildLocalSmartFeedback(params: {
 
   const hints: string[] = [];
 
-  // 1. 한글이나 자음/모음만 입력한 경우
   if (/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(combined) || !/[a-zA-Z]/.test(combined)) {
     hints.push("아직 한글이나 기호가 섞여 있어요. 위쪽 '단어 주머니'를 펼쳐 영어 단어로 문장을 만들어 볼까요?");
   } else {
-    // 2. 첫 글자 대문자 및 마침표 점검
     if ((s1 && !/^[A-Z]/.test(s1)) || (s2 && !/^[A-Z]/.test(s2))) {
       hints.push('문장의 맨 첫 글자는 항상 큰 글자(대문자)로 시작해야 해요.');
     }
-    // 3. Step 1: 'is a tall / is a short'처럼 키·성격 단어 앞에 불필요한 a를 쓴 경우
     if (/\b(is|am|are)\s+a\s+(tall|short|smart|brave|kind|funny|curious|cute|pretty)\b/i.test(combined)) {
       hints.push("키나 성격을 나타내는 말('tall', 'short' 등)은 셀 수 있는 물건이 아니라서 앞에 'a'를 쓰지 않아요.");
     }
-    // 4. Step 1: He/She have 오류
     if (/\b(he|she)\s+have\b/i.test(combined)) {
       hints.push("한 명('He' 또는 'She')이 가진 모습을 말할 때는 'have' 대신 모양이 조금 다른 짝꿍 말('has')을 써 보세요.");
     }
-    // 5. Step 2: wearing 또는 is 누락 (예: she wear pant / he wearing)
-    if (s2 && /\b(he|she)\s+wear(s)?\b/i.test(s2)) {
+    if (/\bwaer\b/i.test(combined)) {
+      hints.push("옷을 입는다는 단어의 철자('w-e-a-r-i-n-g')가 맞는지 위쪽 단어 주머니에서 다시 확인해 보세요.");
+    } else if (s2 && /\b(he|she)\s+wear(s)?\b/i.test(s2)) {
       hints.push("입고 있는 옷차림을 소개할 때는 'wear' 대신 'is wearing' 형태로 짝꿍 말을 함께 써 보세요.");
     } else if (s2 && /\b(he|she)\s+wearing\b/i.test(s2)) {
       hints.push("옷차림 문장에서 'He/She'와 'wearing' 사이에 짝꿍 말('is')이 빠지지 않았는지 확인해 보세요.");
     }
-    // 6. pant / shoe / glass 처럼 항상 둘이 짝인 옷 단어에 s 누락
     if (/\b(pant|shoe|glass|boot|short)\b/i.test(combined) && !/\bshort\s+hair\b/i.test(combined)) {
-      hints.push('바지나 신발, 안경처럼 두 쪽이 한 짝인 물건은 단어 끝에 소리를 더해 주는 글자(-s/-es)가 붙는지 단어 주머니에서 확인해 보세요.');
+      hints.push('바지(pants)나 신발(shoes), 안경(glasses)처럼 두 쪽이 한 짝인 물건은 단어 끝에 -s나 -es가 붙는지 확인해 보세요.');
     }
-    // 7. 마침표 확인
     if ((s1 && !/[.!]$/.test(s1)) || (s2 && !/[.!]$/.test(s2))) {
       hints.push('문장이 끝날 때는 끝에 마침표(.)를 꼭 찍어 주세요.');
     }
@@ -88,39 +77,49 @@ function buildLocalSmartFeedback(params: {
   ].join('\n');
 }
 
-async function callGeminiWithFallback(apiKey: string, userPrompt: string): Promise<string> {
-  for (const modelName of CANDIDATE_MODELS) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: COACH_SYSTEM_INSTRUCTION }],
+// 최대 2.5초까지만 Gemini 서버를 기다리고, 지연 시 즉시 폴백으로 넘깁니다.
+async function callGeminiFastWithCutoff(
+  apiKey: string,
+  userPrompt: string,
+  cutoffMs = 2500
+): Promise<string> {
+  const fetchPromise = (async () => {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: COACH_SYSTEM_INSTRUCTION }],
+        },
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: userPrompt }],
           },
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: userPrompt }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.3,
+        ],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 200,
+          thinkingConfig: {
+            thinkingBudget: 0,
           },
-        }),
-      });
+        },
+      }),
+    });
 
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-        if (text) return text;
-      }
-    } catch {
-      // 다음 모델 시도
-    }
-  }
-  throw new Error('HIGH_DEMAND');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error('API_ERROR');
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!text) throw new Error('EMPTY');
+    return text;
+  })();
+
+  const timeoutPromise = new Promise<string>((_, reject) => {
+    window.setTimeout(() => reject(new Error('TIMEOUT')), cutoffMs);
+  });
+
+  return await Promise.race([fetchPromise, timeoutPromise]);
 }
 
 export async function requestCoachReview(params: {
@@ -138,9 +137,9 @@ export async function requestCoachReview(params: {
         `Step 3(특징): ${params.step3Traits.trim() || '(없음)'}`,
       ].join('\n');
 
-      return await callGeminiWithFallback(apiKey, userPrompt);
+      return await callGeminiFastWithCutoff(apiKey, userPrompt, 2500);
     } catch {
-      // 구글 Gemini 서버가 과부하(High Demand)일 때 에러 대신 즉시 내장 코치 피드백 반환
+      // 2.5초 초과 또는 서버 혼잡 시 0초 만에 내장 스마트 코치 결과 반환
       return buildLocalSmartFeedback(params);
     }
   }
@@ -164,9 +163,9 @@ export async function requestCoachQuestion(params: {
         .filter(Boolean)
         .join('\n');
 
-      return await callGeminiWithFallback(apiKey, userPrompt);
+      return await callGeminiFastWithCutoff(apiKey, userPrompt, 3500);
     } catch {
-      return '💡 잠시 AI 질문 서버에 접속자가 많아요! 위쪽 [YBM(김) 3~5학년 교과서 단어 주머니]를 펼쳐서 필요한 단어를 먼저 찾아볼까요?';
+      return '💡 위쪽 [YBM(김) 3~5학년 교과서 단어 주머니]를 펼쳐서 필요한 단어를 먼저 찾아볼까요?';
     }
   }
 
