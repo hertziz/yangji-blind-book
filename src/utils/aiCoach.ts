@@ -43,7 +43,7 @@ function detectDefiniteErrorsInstantly(params: {
   const s1 = params.step1Looks.trim();
   const s2 = params.step2Clothes.trim();
   const s3 = params.step3Traits.trim();
-  const combined = `${s1} ${s2}${s3}`.trim();
+  const combined = `${s1} ${s2} ${s3}`.trim();
 
   const errors: string[] = [];
 
@@ -75,7 +75,33 @@ function detectDefiniteErrorsInstantly(params: {
     // 6. 같은 글자 3연속 오타 (예: dresss, talll)
     const triple = combined.match(/\b[a-zA-Z]*([a-zA-Z])\1\1[a-zA-Z]*\b/);
     if (triple) {
-      errors.push(`'${triple[0]}' 단어에 같은 알파벳이 세 번 연속 들어갔어요. 철자를 다시 확인해 보세요.`); } // 7. 복수형 의류(-s/-es) 누락 (pant, shoe, glass, boot) if (/\b(pant\vert{}shoe\vert{}glass\vert{}boot)\b/i.test(combined)) { errors.push('바지(pants), 신발(shoes), 안경(glasses), 부츠(boots)처럼 두 짝인 물건은 단어 끝에 -s나 -es를 붙여요.'); } // 8. 단수 의류 앞 a 누락 if (/\bwearing\s+(?:blue\vert{}red\vert{}yellow\vert{}white\vert{}black\vert{}green\vert{}pink\vert{}brown\s+)?(dress\vert{}hat\vert{}cap\vert{}jacket\vert{}raincoat\vert{}coat\vert{}shirt\vert{}t-shirt\vert{}skirt)\b/i.test(combined)) { errors.push("드레스, 모자, 재킷처럼 하나인 옷 앞에는 'a'를 붙여 보세요."); } // 9. 첫 글자 대문자 및 마침표 점검 if ((s1 && !/^[A-Z]/.test(s1)) \vert{}\vert{} (s2 && !/^[A-Z]/.test(s2)) \vert{}\vert{} (s3 && !/^[A-Z]/.test(s3))) { errors.push('각 문장의 맨 첫 글자는 항상 큰 글자(대문자)로 시작해 주세요.'); } if ((s1 && !/[.!]$/.test(s1)) \vert{}\vert{} (s2 && !/[.!]$/.test(s2)) \vert{}\vert{} (s3 && !/[.!]$/.test(s3))) { errors.push('문장 끝에는 마침표(.)를 꼭 찍어 마무리해 주세요.'); } }  if (errors.length > 0) { const goodPoint = '인물의 생김새와 옷차림을 영어로 표현하려고 시도한 점이 멋져요!'; const fixPoint = errors.slice(0, 2).join(' '); const moreQuestion = s3 ? '오류를 고친 뒤 옷이나 머리 모양에 색깔 단어를 하나 더 넣어 볼까요?' : '위 힌트를 보고 문장을 고친 뒤, 옷의 색깔이나 Step 3(특징·취미)도 더해 볼까요?';  return [`🟢 ${goodPoint}`, `🟡 ${fixPoint}`, `🔍 ${moreQuestion}`].join('\n');
+      errors.push(`'${triple[0]}' 단어에 같은 알파벳이 세 번 연속 들어갔어요. 철자를 다시 확인해 보세요.`);
+    }
+    // 7. 복수형 의류(-s/-es) 누락 (pant, shoe, glass, boot)
+    if (/\b(pant|shoe|glass|boot)\b/i.test(combined)) {
+      errors.push('바지(pants), 신발(shoes), 안경(glasses), 부츠(boots)처럼 두 짝인 물건은 단어 끝에 -s나 -es를 붙여요.');
+    }
+    // 8. 단수 의류 앞 a 누락
+    if (/\bwearing\s+(?:blue|red|yellow|white|black|green|pink|brown\s+)?(dress|hat|cap|jacket|raincoat|coat|shirt|t-shirt|skirt)\b/i.test(combined)) {
+      errors.push("드레스, 모자, 재킷처럼 하나인 옷 앞에는 'a'를 붙여 보세요.");
+    }
+    // 9. 첫 글자 대문자 및 마침표 점검
+    if ((s1 && !/^[A-Z]/.test(s1)) || (s2 && !/^[A-Z]/.test(s2)) || (s3 && !/^[A-Z]/.test(s3))) {
+      errors.push('각 문장의 맨 첫 글자는 항상 큰 글자(대문자)로 시작해 주세요.');
+    }
+    if ((s1 && !/[.!]$/.test(s1)) || (s2 && !/[.!]$/.test(s2)) || (s3 && !/[.!]$/.test(s3))) {
+      errors.push('문장 끝에는 마침표(.)를 꼭 찍어 마무리해 주세요.');
+    }
+  }
+
+  if (errors.length > 0) {
+    const goodPoint = '인물의 생김새와 옷차림을 영어로 표현하려고 시도한 점이 멋져요!';
+    const fixPoint = errors.slice(0, 2).join(' ');
+    const moreQuestion = s3
+      ? '오류를 고친 뒤 옷이나 머리 모양에 색깔 단어를 하나 더 넣어 볼까요?'
+      : '위 힌트를 보고 문장을 고친 뒤, 옷의 색깔이나 Step 3(특징·취미)도 더해 볼까요?';
+
+    return [`🟢 ${goodPoint}`, `🟡 ${fixPoint}`, `🔍 ${moreQuestion}`].join('\n');
   }
 
   return null;
@@ -92,7 +118,60 @@ async function getAvailableModels(apiKey: string): Promise<string[]> {
   ];
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}` ); if (!res.ok) return defaults; const data = await res.json(); const fetched: string[] = (data.models \vert{}\vert{} []) .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent')) .map((m: any) => String(m.name).replace(/^models\//, '')) .filter((n: string) => n.includes('gemini') && !n.includes('tts') && !n.includes('image') && !n.includes('vision'));  // 한도가 꽉 찬 gemini-3.8-flash는 맨 뒤로 배치하고 다른 flash/lite 모델을 우선 배치 const others = fetched.filter((n) => n !== 'gemini-3.8-flash'); return [...others, 'gemini-3.8-flash']; } catch { return defaults; } }  async function callGeminiWithQuotaRotation(apiKey: string, userPrompt: string): Promise<string> { if (!apiKey) { throw new Error('API 키가 설정되지 않았습니다.'); }  const models = await getAvailableModels(apiKey); let lastError = '';  for (const modelName of models) { try { const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`; const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ systemInstruction: { parts: [{ text: COACH_SYSTEM_INSTRUCTION }], }, contents: [ { role: 'user', parts: [{ text: userPrompt }], }, ], generationConfig: { temperature: 0.1, maxOutputTokens: 170, }, }), });  const data = await res.json().catch(() => ({})); if (res.ok) { const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim(); if (text) return stripFeedbackLabels(text); } else { lastError = data?.error?.message \vert{}\vert{} `HTTP ${res.status}`;
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
+    );
+    if (!res.ok) return defaults;
+    const data = await res.json();
+    const fetched: string[] = (data.models || [])
+      .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+      .map((m: any) => String(m.name).replace(/^models\//, ''))
+      .filter((n: string) => n.includes('gemini') && !n.includes('tts') && !n.includes('image') && !n.includes('vision'));
+
+    // 한도가 꽉 찬 gemini-3.8-flash는 맨 뒤로 배치하고 다른 flash/lite 모델을 우선 배치
+    const others = fetched.filter((n) => n !== 'gemini-3.8-flash');
+    return [...others, 'gemini-3.8-flash'];
+  } catch {
+    return defaults;
+  }
+}
+
+async function callGeminiWithQuotaRotation(apiKey: string, userPrompt: string): Promise<string> {
+  if (!apiKey) {
+    throw new Error('API 키가 설정되지 않았습니다.');
+  }
+
+  const models = await getAvailableModels(apiKey);
+  let lastError = '';
+
+  for (const modelName of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: COACH_SYSTEM_INSTRUCTION }],
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: userPrompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 170,
+          },
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (text) return stripFeedbackLabels(text);
+      } else {
+        lastError = data?.error?.message || `HTTP ${res.status}`;
         // 429(한도 초과), 404(지원 종료), 503(혼잡)이면 즉시 다음 모델로 우회!
         continue;
       }
@@ -101,8 +180,26 @@ async function getAvailableModels(apiKey: string): Promise<string[]> {
     }
   }
 
-  throw new Error(`일일 무료 AI 호출 한도를 모두 사용했어요. (${lastError})`); }  export async function requestCoachReview(params: { step1Looks: string; step2Clothes: string; step3Traits: string; }): Promise<string> { // 1단계: 필수 문장 구조(He/She is wearing 등) 및 오타는 API 횟수를 쓰지 않고 0.05초 만에 즉시 피드백! const instantErrorFeedback = detectDefiniteErrorsInstantly(params); if (instantErrorFeedback) { return instantErrorFeedback; }  // 2단계: 1단계를 통과한 문장은 사용 가능한 다른 Gemini 모델을 순회하며 정밀 점검 const apiKey = getGeminiApiKey(); const userPrompt = [ `Step 1(생김새): ${params.step1Looks.trim()}`,
-    `Step 2(옷차림): ${params.step2Clothes.trim()}`, `Step 3(특징): ${params.step3Traits.trim() || '(없음)'}`,
+  throw new Error(`일일 무료 AI 호출 한도를 모두 사용했어요. (${lastError})`);
+}
+
+export async function requestCoachReview(params: {
+  step1Looks: string;
+  step2Clothes: string;
+  step3Traits: string;
+}): Promise<string> {
+  // 1단계: 필수 문장 구조(He/She is wearing 등) 및 오타는 API 횟수를 쓰지 않고 0.05초 만에 즉시 피드백!
+  const instantErrorFeedback = detectDefiniteErrorsInstantly(params);
+  if (instantErrorFeedback) {
+    return instantErrorFeedback;
+  }
+
+  // 2단계: 1단계를 통과한 문장은 사용 가능한 다른 Gemini 모델을 순회하며 정밀 점검
+  const apiKey = getGeminiApiKey();
+  const userPrompt = [
+    `Step 1(생김새): ${params.step1Looks.trim()}`,
+    `Step 2(옷차림): ${params.step2Clothes.trim()}`,
+    `Step 3(특징): ${params.step3Traits.trim() || '(없음)'}`,
   ].join('\n');
 
   return await callGeminiWithQuotaRotation(apiKey, userPrompt);
@@ -116,7 +213,8 @@ export async function requestCoachQuestion(params: {
 
   const userPrompt = [
     '초등 3~5학년 수준 영단어 1~2개와 힌트만 2문장 이내로 짧게 답하세요(문장 전체 대신 작성 금지, 💡 기호로 시작).',
-    params.currentDraft ? `현재 글: ${params.currentDraft.trim()}` : '', `질문: ${params.question.trim()}`,
+    params.currentDraft ? `현재 글: ${params.currentDraft.trim()}` : '',
+    `질문: ${params.question.trim()}`,
   ]
     .filter(Boolean)
     .join('\n');
