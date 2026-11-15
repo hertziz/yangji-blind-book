@@ -452,7 +452,9 @@ export function WritingStudio({
                   YBM(김) 3~5학년 교과서 단어 주머니
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  단어를 누르면 앞 띄어쓰기와 함께 Step {activeStep} 입력창에 바로 들어가요!
+                  {isPocketOpen
+                    ? `단어를 누르면 앞 띄어쓰기와 함께 Step ${activeStep} 입력창에 바로 들어가요!`
+                    : '영어 단어가 생각나지 않나요? 여기를 눌러 단어 주머니를 펼쳐보세요! 👇'}
                 </p>
               </div>
               <span className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 inline-flex items-center justify-center shrink-0">
