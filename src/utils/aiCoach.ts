@@ -97,7 +97,7 @@ function detectDefiniteErrorsInstantly(params: {
     if ((s1 && !/^[A-Z]/.test(s1)) || (s2 && !/^[A-Z]/.test(s2)) || (s3 && !/^[A-Z]/.test(s3))) {
       errors.push('각 문장의 맨 첫 글자는 항상 큰 글자(대문자)로 시작해 주세요.');
     }
-    if ((s1 && !/[.!]$/.test(s1)) || (s2 && !/[.!]$/.test(s2)) \vert{}\vert{} (s3 && !/[.!]$/.test(s3))) {
+    if ((s1 && !/[.!]$/.test(s1)) || (s2 && !/[.!]$/.test(s2)) || (s3 && !/[.!]$/.test(s3))) {
       errors.push('문장 끝에는 마침표(.)를 꼭 찍어 마무리해 주세요.');
     }
   }
@@ -184,4 +184,29 @@ export async function requestCoachReview(params: {
   }
 
   // 2단계: 1단계를 통과한 문장은 Gemini AI가 문맥과 세부 어법을 정밀 점검 (거짓 통과 원천 차단)
-  const apiKey
+  const apiKey = getGeminiApiKey();
+  const userPrompt = [
+    `Step 1(생김새): ${params.step1Looks.trim()}`,
+    `Step 2(옷차림): ${params.step2Clothes.trim()}`,
+    `Step 3(특징): ${params.step3Traits.trim() || '(없음)'}`,
+  ].join('\n');
+
+  return await callGeminiFastAndStrict(apiKey, userPrompt);
+}
+
+export async function requestCoachQuestion(params: {
+  question: string;
+  currentDraft: string;
+}): Promise<string> {
+  const apiKey = getGeminiApiKey();
+
+  const userPrompt = [
+    '초등 3~5학년 수준 영단어 1~2개와 힌트만 2문장 이내로 짧게 답하세요(문장 전체 대신 작성 금지, 💡 기호로 시작).',
+    params.currentDraft ? `현재 글: ${params.currentDraft.trim()}` : '',
+    `질문: ${params.question.trim()}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return await callGeminiFastAndStrict(apiKey, userPrompt);
+}
