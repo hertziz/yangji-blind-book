@@ -94,7 +94,7 @@ export function WritingStudio({
   onSubmitBook,
 }: WritingStudioProps) {
   // Left Column State
-  const [isPocketOpen, setIsPocketOpen] = useState(true);
+  const [isPocketOpen, setIsPocketOpen] = useState(false);
   const [activeStep, setActiveStep] = useState<ActiveStep>(1);
   const [step1Looks, setStep1Looks] = useState('');
   const [step2Clothes, setStep2Clothes] = useState('');
@@ -419,7 +419,7 @@ export function WritingStudio({
             나의 북캐릭터 영어 소개글 쓰기 &amp; 스스로 점검
           </h1>
           <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-            교과서 표현 주머니와 말하기 버튼으로 문장을 쓰고, AI 코치의 힌트를 받아 스스로 고쳐 보세요.
+            교과서 단어 주머니와 말하기 버튼으로 문장을 쓰고, AI 코치의 힌트를 받아 스스로 고쳐 보세요.
           </p>
         </div>
 
@@ -449,7 +449,7 @@ export function WritingStudio({
             >
               <div>
                 <h2 className="text-base font-bold text-slate-900">
-                  YBM(김) 3~5학년 교과서 표현 주머니
+                  YBM(김) 3~5학년 교과서 단어 주머니
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
                   단어를 누르면 앞 띄어쓰기와 함께 Step {activeStep} 입력창에 바로 들어가요!
